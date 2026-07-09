@@ -10,6 +10,13 @@ from .scrapers.grades import (
     what_if_cgpa,
     grade_distribution,
 )
+from .scrapers.attendance import (
+    fetch_attendance,
+    attendance_alerts,
+    classes_to_attend,
+    classes_can_skip,
+)
+from .utils import cache
 
 mcp = FastMCP("iitkgp-erp", "MCP server for IIT Kharagpur ERP")
 
@@ -130,6 +137,80 @@ def get_grade_distribution_tool() -> str:
         return json.dumps(dist, indent=2)
     except Exception as e:
         return f"Error: {e}"
+
+
+@mcp.tool()
+def get_attendance() -> str:
+    """Get attendance for all subjects in current semester."""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        cached = cache.get("attendance")
+        if cached:
+            records = cached
+        else:
+            records = fetch_attendance()
+            cache.set("attendance", records, ttl=600)
+        if not records:
+            return "No attendance data found."
+        return json.dumps(records, indent=2)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_attendance_alerts(threshold: float = 80.0) -> str:
+    """Get subjects where attendance is below threshold (default 80%)."""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        records = fetch_attendance()
+        alerts = attendance_alerts(records, threshold)
+        if not alerts:
+            return f"All subjects above {threshold}% attendance. You're safe!"
+        return json.dumps(alerts, indent=2)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def can_i_skip(subject_code: str) -> str:
+    """Check how many classes you can skip for a subject and still stay above 80%."""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        records = fetch_attendance()
+        match = [r for r in records if r["code"] == subject_code]
+        if not match:
+            match = [r for r in records if subject_code.lower() in r["name"].lower()]
+        if not match:
+            return f"Subject '{subject_code}' not found. Use exact code or partial name."
+
+        record = match[0]
+        skippable = classes_can_skip(record)
+        need = classes_to_attend(record)
+
+        if record["percentage"] >= 80:
+            return (
+                f"{record['name']} ({record['code']})\n"
+                f"Attendance: {record['percentage']}% ({record['present']}/{record['total_classes']})\n"
+                f"You can skip {skippable} more classes and stay above 80%."
+            )
+        else:
+            return (
+                f"{record['name']} ({record['code']})\n"
+                f"Attendance: {record['percentage']}% ({record['present']}/{record['total_classes']})\n"
+                f"WARNING: Below 80%! You need to attend {need} more classes to recover."
+            )
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def clear_cache() -> str:
+    """Clear locally cached ERP data."""
+    cache.clear()
+    return "Cache cleared."
 
 
 def main():
