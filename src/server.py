@@ -27,6 +27,20 @@ from .scrapers.placements import (
     fetch_notice_detail,
     filter_notices,
 )
+from .scrapers.timetable import (
+    fetch_timetable,
+    get_today_schedule,
+    get_day_schedule,
+    find_prof_classes,
+    generate_ics,
+)
+from .scrapers.browser import browse_page, search_erp
+from .scrapers.notices import fetch_academic_notices, search_notices
+from .scrapers.registration import (
+    fetch_registered_subjects,
+    get_credit_summary,
+    check_slot_conflicts,
+)
 from .utils import cache
 
 mcp = FastMCP("iitkgp-erp", "MCP server for IIT Kharagpur ERP")
@@ -305,6 +319,182 @@ def get_notice_detail(notice_url: str) -> str:
         if not detail:
             return "Could not fetch notice details."
         return detail
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_timetable(day: str = "") -> str:
+    """Get your timetable. Pass a day like 'Monday' to filter, or leave empty for full week."""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        cached = cache.get("timetable")
+        if cached:
+            tt = cached
+        else:
+            tt = fetch_timetable()
+            cache.set("timetable", tt, ttl=3600)
+
+        if not tt:
+            return "No timetable data found."
+
+        if day:
+            tt = get_day_schedule(tt, day)
+            if not tt:
+                return f"No classes on {day}."
+
+        return json.dumps(tt, indent=2)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_today_classes() -> str:
+    """Get today's class schedule."""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        cached = cache.get("timetable")
+        if cached:
+            tt = cached
+        else:
+            tt = fetch_timetable()
+            cache.set("timetable", tt, ttl=3600)
+
+        today = get_today_schedule(tt)
+        if not today:
+            return "No classes today!"
+        return json.dumps(today, indent=2)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def where_is_prof(prof_name: str) -> str:
+    """Find where a professor is based on timetable data.
+    Pass partial name like 'sharma' or 'Prof Kumar'."""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        cached = cache.get("timetable")
+        if cached:
+            tt = cached
+        else:
+            tt = fetch_timetable()
+            cache.set("timetable", tt, ttl=3600)
+
+        classes = find_prof_classes(tt, prof_name)
+        if not classes:
+            return f"No classes found for '{prof_name}' in your timetable."
+        return json.dumps(classes, indent=2)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def export_timetable_ics(semester_start: str = "") -> str:
+    """Export timetable as ICS (calendar) format. Optionally pass semester start date (YYYY-MM-DD).
+    You can import the output into Google Calendar, Apple Calendar, etc."""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        tt = fetch_timetable()
+        if not tt:
+            return "No timetable data found."
+        ics = generate_ics(tt, semester_start)
+        return ics
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def browse_erp_page(path: str) -> str:
+    """Browse any ERP page. Pass a path like 'Academic/notices.htm' or full URL.
+    Returns page title, text content, tables, and links found."""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        result = browse_page(path)
+        return json.dumps(result, indent=2, ensure_ascii=False)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def search_erp_pages(query: str) -> str:
+    """Search for ERP pages by keyword. Returns matching page paths.
+    Examples: 'grades', 'fee', 'hostel', 'library'"""
+    results = search_erp(query)
+    if not results:
+        return f"No pages matching '{query}'. Try: grades, attendance, timetable, fee, notices, placements, profile, hostel, library, scholarship"
+    return json.dumps(results, indent=2)
+
+
+@mcp.tool()
+def get_academic_notices(keyword: str = "") -> str:
+    """Get academic notices/announcements. Optionally filter by keyword."""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        cached = cache.get("academic_notices")
+        if cached:
+            notices = cached
+        else:
+            notices = fetch_academic_notices()
+            cache.set("academic_notices", notices, ttl=300)
+
+        if not notices:
+            return "No academic notices found."
+
+        if keyword:
+            notices = search_notices(notices, keyword)
+            if not notices:
+                return f"No notices matching '{keyword}'."
+
+        return json.dumps(notices[:20], indent=2)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_registered_subjects() -> str:
+    """Get all subjects you're currently registered for this semester."""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        subjects = fetch_registered_subjects()
+        if not subjects:
+            return "No registered subjects found."
+        return json.dumps(subjects, indent=2)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_credit_summary_tool() -> str:
+    """Get credit summary — total credits and breakdown by type (core, elective, lab, etc.)."""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        subjects = fetch_registered_subjects()
+        summary = get_credit_summary(subjects)
+        return json.dumps(summary, indent=2)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def check_slot_conflicts_tool() -> str:
+    """Check if any of your registered subjects have slot conflicts."""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        subjects = fetch_registered_subjects()
+        conflicts = check_slot_conflicts(subjects)
+        if not conflicts:
+            return "No slot conflicts found. Your schedule is clean!"
+        return json.dumps(conflicts, indent=2)
     except Exception as e:
         return f"Error: {e}"
 

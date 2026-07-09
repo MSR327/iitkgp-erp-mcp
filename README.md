@@ -1,6 +1,6 @@
 # iitkgp-erp-mcp
 
-MCP server for IIT Kharagpur ERP. Query your grades, CGPA, attendance, placements, and more through any AI agent or MCP-compatible client.
+MCP server for IIT Kharagpur ERP. Query your grades, CGPA, attendance, timetable, placements, and more through any AI agent.
 
 Works with: **Claude Code, Claude Desktop, Cursor, Cline, Continue, Zed, custom agents** — anything that speaks MCP.
 
@@ -41,8 +41,11 @@ Then ask your AI agent:
 - "Which breadth electives should I take?"
 - "Any new placement notices for SDE roles?"
 - "Can I skip tomorrow's Signals class?"
+- "What's my schedule today?"
+- "Export my timetable to Google Calendar"
+- "Browse the fee payment page"
 
-## Available Tools
+## Available Tools (25)
 
 ### Grades & GPA
 | Tool | Description |
@@ -71,11 +74,26 @@ Then ask your AI agent:
 | `get_strengths_weaknesses` | Your top 5 best/worst subjects |
 | `get_department_performance` | Average GPA by department |
 
-### Placements
+### Timetable & Schedule
+| Tool | Description |
+|------|-------------|
+| `get_timetable` | Full week or specific day schedule |
+| `get_today_classes` | Today's classes |
+| `where_is_prof` | Find a professor's location via timetable |
+| `export_timetable_ics` | Export to ICS format (Google Calendar, Apple Calendar) |
+
+### Placements & Notices
 | Tool | Description |
 |------|-------------|
 | `get_placement_notices` | CDC notices, filterable by keyword |
 | `get_notice_detail` | Full text of a specific notice |
+| `get_academic_notices` | Academic announcements |
+
+### Explorer
+| Tool | Description |
+|------|-------------|
+| `browse_erp_page` | Navigate any ERP page freely |
+| `search_erp_pages` | Find ERP pages by keyword |
 
 ### Utility
 | Tool | Description |
@@ -102,16 +120,37 @@ Your AI Agent ←→ MCP Protocol (stdio) ←→ iitkgp-erp-mcp server
                                         erp.iitkgp.ac.in
 ```
 
+## Grading Scale
+
+| Grade | Points |
+|-------|--------|
+| EX | 10 |
+| A | 9 |
+| B | 8 |
+| C | 7 |
+| D | 6 |
+| P | 5 |
+| F | 0 |
+
 ## Roadmap
 
 - [x] Grades & GPA tools
 - [x] Attendance tracking + alerts
 - [x] Elective recommender
 - [x] Placement notice integration
-- [ ] Timetable extraction
-- [ ] Calendar sync (Google Calendar / ICS)
-- [ ] Prof finder (Where Is My Prof?)
-- [ ] Batch grade distributions
+- [x] Timetable extraction
+- [x] Calendar sync (ICS export)
+- [x] Prof finder
+- [x] Academic notices
+- [x] Freeform ERP browser
+- [ ] Batch grade distributions (historical data)
+- [ ] Registration status
+- [ ] Fee payment status
+- [ ] Hostel info
+
+## Contributing
+
+PRs welcome! The scrapers in `src/scrapers/` may need selector updates if ERP changes its HTML structure.
 
 ## License
 
