@@ -16,6 +16,17 @@ from .scrapers.attendance import (
     classes_to_attend,
     classes_can_skip,
 )
+from .scrapers.electives import (
+    fetch_available_electives,
+    recommend_electives,
+    find_strong_weak_subjects,
+    analyze_strengths,
+)
+from .scrapers.placements import (
+    fetch_placement_notices,
+    fetch_notice_detail,
+    filter_notices,
+)
 from .utils import cache
 
 mcp = FastMCP("iitkgp-erp", "MCP server for IIT Kharagpur ERP")
@@ -202,6 +213,98 @@ def can_i_skip(subject_code: str) -> str:
                 f"Attendance: {record['percentage']}% ({record['present']}/{record['total_classes']})\n"
                 f"WARNING: Below 80%! You need to attend {need} more classes to recover."
             )
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def recommend_electives_tool(elective_type: str = "breadth") -> str:
+    """Recommend electives based on your grade history and strengths.
+    Types: 'breadth', 'depth', 'open'"""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        grades = fetch_grades()
+        try:
+            available = fetch_available_electives(elective_type)
+        except Exception:
+            available = None
+
+        recs = recommend_electives(grades, available)
+        if not recs:
+            return "Could not generate recommendations. Try after fetching grades."
+        return json.dumps(recs, indent=2)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_strengths_weaknesses() -> str:
+    """Find your strongest and weakest subjects based on grades."""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        grades = fetch_grades()
+        result = find_strong_weak_subjects(grades)
+        return json.dumps(result, indent=2)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_department_performance() -> str:
+    """See your average performance grouped by department (CS, MA, EE, etc.)."""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        grades = fetch_grades()
+        strengths = analyze_strengths(grades)
+        summary = {
+            dept: {"avg_gpa": data["avg_gpa"], "subjects_taken": len(data["subjects"])}
+            for dept, data in sorted(strengths.items(), key=lambda x: x[1]["avg_gpa"], reverse=True)
+        }
+        return json.dumps(summary, indent=2)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_placement_notices(keyword: str = "") -> str:
+    """Get placement/internship notices from CDC. Optionally filter by keyword.
+    Example: 'SDE', 'Google', 'internship'"""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        cached = cache.get("placement_notices")
+        if cached:
+            notices = cached
+        else:
+            notices = fetch_placement_notices()
+            cache.set("placement_notices", notices, ttl=300)
+
+        if not notices:
+            return "No placement notices found."
+
+        if keyword:
+            notices = filter_notices(notices, keyword)
+            if not notices:
+                return f"No notices matching '{keyword}'."
+
+        return json.dumps(notices[:20], indent=2)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_notice_detail(notice_url: str) -> str:
+    """Get full details of a specific placement notice. Pass the URL from get_placement_notices."""
+    if not is_logged_in():
+        return "Not logged in. Use erp_login first."
+    try:
+        detail = fetch_notice_detail(notice_url)
+        if not detail:
+            return "Could not fetch notice details."
+        return detail
     except Exception as e:
         return f"Error: {e}"
 
