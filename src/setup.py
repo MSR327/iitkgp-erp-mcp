@@ -22,7 +22,7 @@ def main():
     print()
     print("Credentials saved to OS keychain.")
     print()
-    print("Add this to your Claude config (.mcp.json):")
+    print("Add this to your MCP client config:")
     print()
     print('  {')
     print('    "mcpServers": {')
@@ -32,7 +32,10 @@ def main():
     print('    }')
     print('  }')
     print()
-    print("Done! You can now use Claude to query your ERP.")
+    print("Works with: Claude Code, Cursor, Cline, Continue, Zed,")
+    print("or any MCP-compatible AI agent.")
+    print()
+    print("Done! Start asking your AI agent about your ERP data.")
 
 
 if __name__ == "__main__":

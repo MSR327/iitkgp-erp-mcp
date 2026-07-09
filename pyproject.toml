@@ -1,7 +1,7 @@
 [project]
 name = "iitkgp-erp-mcp"
 version = "0.1.0"
-description = "MCP server for IIT Kharagpur ERP — grades, attendance, analytics through Claude"
+description = "MCP server for IIT Kharagpur ERP — grades, attendance, placements, analytics through any AI agent"
 authors = [{name = "MSR327"}]
 license = {text = "MIT"}
 readme = "README.md"
